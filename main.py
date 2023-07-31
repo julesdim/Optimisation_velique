@@ -180,7 +180,7 @@ def comparaison_techno(vitesse, list_techno, stats_vent, affichage, retour=False
     """
     res = {}  # Stocke les résultats clé puissance et techno en valeur
     for techno in list_techno:
-        nom_fichier = "polaires/" + techno + "_" + str(vitesse) + ".csv"
+        nom_fichier = "polaires/" + techno + "_" + str(11) + ".csv"
         res_techno, dico = calcul_puissance(stats_vent, nom_fichier, vitesse, False, techno, retour)
         # On récupère le résultat pour la techno puissance moyenne pondérée et dictionnaire associé pour les différentes
         # incidences
@@ -211,7 +211,7 @@ def comparaison_techno(vitesse, list_techno, stats_vent, affichage, retour=False
     vals = list(res.keys())
     opti = max(vals)
     techno_opti = res[opti]
-    print(res)
+    print(res,stats_vent)
     return (techno_opti, opti, res)
 
 
@@ -601,7 +601,8 @@ def comparaison_techno_aller_retour(vitesse: object, list_techno: object, route)
 
 #val = calcul_puissance("stats_vent/stats_10kt_ter.csv", "polaires/BTS_11.csv", 11, True, "BTS", False)
 technos = ["ADD", "BTS", "SS", "WISAMO", "ZEPHIRE"]
-stats = ["stats_vent/stats_10kt.csv", "stats_vent/stats_10kt_bis.csv", "stats_vent/stats_10kt_ter.csv"]
+stats_transit = ["stats_vent/stats_10kt_transit_direct.csv","stats_vent/stats_transit_1WP.csv","stats_vent/stats_transit_2WP.csv"]
+stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_route_fishing_1WP.csv","stats_vent/stats_route_fishing_2WP.csv"]
 #stats_fishing = ["stats_vent/stats_route_fishing1.csv", "stats_vent/stats_route_fishing2.csv"]
 #affichage_comparaison_route(stats)
 #test = comparaison_route(11, technos, stats_fishing)
@@ -616,7 +617,7 @@ stats = ["stats_vent/stats_10kt.csv", "stats_vent/stats_10kt_bis.csv", "stats_ve
 #test_bis = lecture_pol("polaires/ADD_11.csv")
 #affichage_des_polaires(test_bis)
 # comparaison_route(11, technos, stats,True)
-comparaison_route(11, technos, stats)
+comparaison_route(11, technos, stats_fishing)
 #affichage_comparaison_route(stats,11,False)
 #affichage_comparaison_route(stats,11,True)
 #test=comparaison_techno_aller_retour(11,technos,"stats_vent/stats_10kt.csv")
