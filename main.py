@@ -274,9 +274,6 @@ def affichage_comparaison_route(liste_route,vnavire=0, retour=False):
         else:
             dico = lecture_vent(route, vnavire)
             stats_retour = dico
-            print("here")
-        print(dico)
-        print(stats_retour)
         probas={}
         les_vitesses=list(stats_retour.keys())
         for angle in stats_retour[les_vitesses[0]]:
@@ -289,9 +286,6 @@ def affichage_comparaison_route(liste_route,vnavire=0, retour=False):
         les_angles = les_angles[
                      ::-1]  # inversion de la liste pour passer en sens horaire, les_r restent eux dans le
         # bon ordre ca a été vérifié par affichage
-        print(route)
-        print(les_angles)
-        print(les_r)
         plt.polar(np.radians(les_angles), les_r, label=route)
         etiquettes_angles = np.linspace(45, 315, 7)
         etiquettes_angles = np.append(etiquettes_angles, 0)
@@ -555,8 +549,6 @@ def conversion_donnée(dico, vnavire):
     somme_proba = 0
     for vitesse in dico_act:
         for angle in dico_act[vitesse]:
-            if vitesse==0:
-                print(angle,"test5")
             angle_ar = arrondir_a_5(angle)
             if angle_ar == 360:
                 angle_ar = 0
@@ -681,7 +673,7 @@ stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_r
 # lecture_vent("stats_vent/stats_10kt_bis.csv",True)
 #test_bis = lecture_pol("polaires/ADD_11.csv")
 #affichage_des_polaires(test_bis)
-# comparaison_route(11, technos, stats,True)
+comparaison_route(9.5, technos, stats_transit)
 # comparaison_route(11, technos, stats_fishing)
 #affichage_comparaison_route(stats,11,False)
 #affichage_comparaison_route(stats,11,True)
@@ -692,5 +684,5 @@ stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_r
 # print(test)
 
 lecture_vent("stats_vent/stats_10kt_transit_direct.csv",11,True,True)
-affichage_comparaison_route(stats_fishing,11,False)
-affichage_comparaison_route(stats_fishing,11,True)
+# affichage_comparaison_route(stats_fishing,11,False)
+# affichage_comparaison_route(stats_fishing,11,True)
