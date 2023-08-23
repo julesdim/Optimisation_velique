@@ -603,9 +603,16 @@ def comparaison_techno_aller_retour(vitesse: object, list_techno: object, route)
     return moy
 
 
-def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vitesse_vent_min,v_navire):
-    dic_vent=lecture_vent(fichier_stat,11)
-    print(dic_vent[11])
+def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vitesse_vent_min,v_navire,retour):
+    if retour:
+        v_lecture = 0
+    else:
+        v_lecture = v_navire
+    dic_vent = lecture_vent(fichier_stat, v_lecture)  # On stocke les valeursdes statistiques dans un dictionnaire
+    if retour:
+        stats_retour = creer_stats_retour(dic_vent)
+        stats_retour_apparent = conversion_donnée(stats_retour, v_navire)
+        dic_vent = stats_retour_apparent
     dic_polaire=lecture_pol(fichier_polaire)
     v_vent_max_ms=vitesse_vent_max*noeud_en_ms
     v_vent_min_ms=vitesse_vent_min*noeud_en_ms
@@ -644,23 +651,18 @@ def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vi
         puiss_suivant_inc[angle]=0
     s_proba = 0
     for v in vent_a_calc:
-        print("test")
-        print(dic_vent[v])
-        print(v)
         for angle in les_angles_stats:
             puiss_suivant_inc[angle]+=dic_res[v][angle]*dic_vent[v][angle]*v_navire*noeud_en_ms
             s_proba+=dic_vent[v][angle]
     proba_effort = 0
-    print(s_proba)
     for angle in les_angles_stats:
         proba_effort+=puiss_suivant_inc[angle]
     etiquettes_angles = np.linspace(45, 315, 7)
     etiquettes_angles = np.append(etiquettes_angles, 0)
     etiquettes_angles = etiquettes_angles[::-1]
     list_r=[]
-    s=0
     for angle in puiss_suivant_inc:
-        list_r.append(puiss_suivant_inc[angle])
+        list_r.append(puiss_suivant_inc[angle]/s_proba)
     plt.polar(np.radians(les_angles_stats), list_r, label=str(round(v_vent_min_ms, 2))+" à "+str(round(v_vent_max_ms, 2)))
     plt.gca().set_theta_offset(np.pi / 2)
     plt.gca().set_xticklabels(etiquettes_angles)
@@ -698,7 +700,7 @@ stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_r
 
 #test=calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",10,11)
 # print(test)
-print(calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",50,20,11))
+print(calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",20,0,11,False))
 lecture_vent("stats_vent/stats_10kt_transit_direct.csv",11,True,True)
 # affichage_comparaison_route(stats_fishing,11,False)
 # affichage_comparaison_route(stats_fishing,11,True)
