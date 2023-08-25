@@ -542,6 +542,7 @@ def conversion_donnée(dico, vnavire):
             if v_réelle_ar not in les_vitesses:
                 somme_rest += dico[vitesse_vent][angle_vent]
     dico_fin = {}
+    les_angles=np.arange(0,356,5)
     for vitesse in les_vitesses:
         dico_fin[vitesse] = {}
         for angle in les_angles:
@@ -602,13 +603,75 @@ def comparaison_techno_aller_retour(vitesse: object, list_techno: object, route)
                 moy[val]=dico_retour[val_retour]
     return moy
 
+def lecture_vent_bis(fichier, v_vent_max, v_vent_min, vnavire=0, affichage=False, end=True):
+    """
+    Cette fonction permet de lire un fichier vent réel et renvoie les probabilités d'obtenir un vent apparent. :param
+    fichier: type(str) chemin d'accès au fichier de vent (vitesse en m/s) :param vnavire: type(float) vitesse du
+    navire (en noeuds), par défaut nulle :param affichage: type(bool) permet d'afficher ou non un graphique comparant
+    les différentes vitesses de navire :param end: type(bool) Permet lorsque utilisé dans la fonction
+    affichage_comparaison_route pour le dernier, on affiche la figure avec toutes les courbes :return: Type(dic) {
+    vitesse1:{angle1:proba1, angle2:proba2,...}, vitesse2:{...},...} Et affiche un graphique si affichage==True
+    """
+    stats = open(fichier, "r", encoding="utf-8")  # ouverture du fichier des stats vent
+    stats_lines = csv.reader(stats)
+    stats_dict = {}  # On stocke les valeurs dans un dictionnaire {vitesse1:{angle1:proba1, angle2:proba2...},
+    # vitesse2{...},...}
+    indentation = 0  # utile pour savoir dans quelle ligne on est
+    les_angles_stats = []  # liste des angles
+    les_vitesses_stats = []  # liste des vitesses
+    v_max_ms=v_vent_max*noeud_en_ms
+    v_min_ms=v_vent_min*noeud_en_ms
+    probas = {}
+    #######################################Lecture du fichier de stats#################################################
+    for line in stats_lines:
+        line_formatted = line[0].strip().split(";")  # mise en forme
+        line_formatted1 = []
+        for val in line_formatted:
+            if len(val) == 0:
+                pass  # on ne récupère pas les caractères vides
+            else:
+                val2 = float(val)
+                line_formatted1.append(val2)  # les valeurs dans une liste
+        if indentation == 0:
+            les_angles_stats = line_formatted1  # dans la première ligne se trouve les angles
+        if len(les_angles_stats) != 0:
+            stats_dict[line_formatted1[0]] = {}  # On prend un dictionnaire pour cette vitesse car la vitesse est
+            # stockée dans la première colonne
+            for i in range(len(line_formatted1)):
+                if i != 0 and line_formatted1[0]>v_min_ms and line_formatted1[0]<v_max_ms:
+                    stats_dict[line_formatted1[0]][les_angles_stats[i - 1]] = line_formatted1[i]  # On ajoute les
+                    # valeurs pour chacun des angles associés
+                elif line_formatted1[0]>v_min_ms and line_formatted1[0]<v_max_ms:
+                    les_vitesses_stats.append(line_formatted1[i])
+        indentation += 1  # incrémentation d'indentation pour dire que l'on passe à la ligne suivante
+    for angle in les_angles_stats:
+        probas[angle]=0
+    if vnavire != 0:
+        dic_vnavire = conversion_donnée(stats_dict, vnavire)
+        for vitesse in dic_vnavire:
+            for angle in dic_vnavire[vitesse]:
+                probas[angle] += dic_vnavire[vitesse][angle]
+                # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
+    elif vnavire==0:
+        for vitesse in stats_dict:
+            for angle in stats_dict[vitesse]:
+                probas[angle] += stats_dict[vitesse][angle]
+                # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
+        #Permet d'avoir le vent apparent
+    for angle in les_angles_stats:
+        probas[angle] = 0
+    if vnavire!=0:
+        return dic_vnavire
+    elif vnavire==0:
+        return stats_dict
+
 
 def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vitesse_vent_min,v_navire,retour):
     if retour:
         v_lecture = 0
     else:
         v_lecture = v_navire
-    dic_vent = lecture_vent(fichier_stat, v_lecture)  # On stocke les valeursdes statistiques dans un dictionnaire
+    dic_vent = lecture_vent_bis(fichier_stat,vitesse_vent_max,vitesse_vent_min, v_lecture)  # On stocke les valeurs des statistiques dans un dictionnaire
     if retour:
         stats_retour = creer_stats_retour(dic_vent)
         stats_retour_apparent = conversion_donnée(stats_retour, v_navire)
@@ -620,19 +683,22 @@ def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vi
     v_polaire=list(dic_polaire.keys())
     v_polaire=v_polaire[::-1]
     v_vent=list(dic_vent.keys())
+    v_vent_calc=[]
+    for vitesse in dic_vent:
+        if vitesse>v_polaire[0]:
+            v_vent_calc.append(vitesse)
     dic_res={}
-    for v in v_vent:
-        if v<=v_vent_max_ms and v>=v_vent_min_ms:
-            dic_res[v]={}
-    vent_a_calc=list(dic_res.keys())
-    for v in vent_a_calc:
-        i=0
+    for v in v_vent_calc:
         les_angles_stats=list(dic_vent[v].keys())
-        while  i<len(v_polaire)-1 and v >=v_polaire[i+1]:
+        i=0
+        dic_res[v]={}
+        while  i<len(v_polaire) and v >=v_polaire[i]:
             i+=1
-        v_pol_calc=v_polaire[i]
+        v_pol_calc=v_polaire[i-1]
+        print(v_polaire)
+        print(v,v_pol_calc)
         effort_act_pol=dic_polaire[v_pol_calc]
-        proba_act=dic_vent[v]
+        proba_act = dic_vent[v]
         for angle in list(dic_vent[v].keys()):
             dic_res[v][angle]=0
         les_angles_pol=list(dic_polaire[v_pol_calc].keys())
@@ -650,7 +716,7 @@ def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vi
     for angle in les_angles_stats:
         puiss_suivant_inc[angle]=0
     s_proba = 0
-    for v in vent_a_calc:
+    for v in v_vent_calc:
         for angle in les_angles_stats:
             puiss_suivant_inc[angle]+=dic_res[v][angle]*dic_vent[v][angle]*v_navire*noeud_en_ms
             s_proba+=dic_vent[v][angle]
@@ -700,7 +766,7 @@ stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_r
 
 #test=calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",10,11)
 # print(test)
-print(calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",20,0,11,False))
+print(calc_puissance_pour_vitesse("stats_vent/stats_route_fishing_1WP.csv","polaires/ADD_11.csv",50,30,11,False))
 lecture_vent("stats_vent/stats_10kt_transit_direct.csv",11,True,True)
 # affichage_comparaison_route(stats_fishing,11,False)
 # affichage_comparaison_route(stats_fishing,11,True)
