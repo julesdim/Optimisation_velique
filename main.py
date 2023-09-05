@@ -4,6 +4,7 @@ import numpy as np
 
 noeud_en_ms = 0.51444468
 
+
 def calcul_puissance(fichier_vent, fichier_polaires, vnavire, affichage, nomsolution="", retour=False):
     """
     Cette fonction renvoie une puissance en kW pour une route une solution vélique et une vitesse de avire.
@@ -33,14 +34,15 @@ def calcul_puissance(fichier_vent, fichier_polaires, vnavire, affichage, nomsolu
 
     """
     if retour:
-        v_lecture=0
+        v_lecture = 0
     else:
-        v_lecture=vnavire
-    stats_dict = lecture_vent(fichier_vent, v_lecture)  # On stocke les valeursdes statistiques dans un dictionnaire
+        v_lecture = vnavire
+    stats_dict = lecture_vent(fichier_vent, v_lecture)  # On stocke les valeurs des statistiques dans un dictionnaire
     if retour:
-        stats_retour=creer_stats_retour(stats_dict)
-        stats_retour_apparent=conversion_donnée(stats_retour,vnavire)
-        stats_dict=stats_retour_apparent
+        stats_retour = creer_stats_retour(stats_dict)
+        # On ajoute 180° pour retourner les valeurs au retour
+        stats_retour_apparent = conversion_donnée(stats_retour, vnavire)
+        stats_dict = stats_retour_apparent
     # {vitesse1:{angle1:proba1, angle2:proba2...}, vitesse2{...},...}
     les_vitesses_stats = list(stats_dict.keys())  # On récupère toutes les vitesses en m/s des stats
     les_angles_stats = list(stats_dict[les_vitesses_stats[0]].keys())  # On récupère les angles des stats
@@ -60,7 +62,7 @@ def calcul_puissance(fichier_vent, fichier_polaires, vnavire, affichage, nomsolu
     for vitesse in les_vitesses_stats:
         # On parcourt les vitesses de vents dont on connait la répartition
         # On cherche à déterminer la vitesse la plus proche dans les polaires en dessous de la vitesse du vent qui
-        # permet d'être conservateur et de considéré un effort plus faible que la réalité et servira de vitesse
+        # permet d'être conservateur et de considérer un effort plus faible que la réalité et servira de vitesse
         # considérée pour le calcul
         borne_sup = vitesse
         vitesse_cal = 0
@@ -175,6 +177,8 @@ def comparaison_techno(vitesse, list_techno, stats_vent, affichage, retour=False
     les vitesses en m/s sur la première colonne, pour chacun de ceux-ci il y a une probabilité associée
     :param affichage type(bool) Permet d'afficher un graphique avec le résultat pour chacune des solutions avec les
     vents combinés (puissance dépendant seulement de l'orientation et pas de la vitesse)
+    :param retour: type(bool), si retour==True alors on évalue le trajet retour et on ajoute 180° aux stats de vent.
+
     :return: Le nom de la technologie la plus optimisée pour la route donnée, ainsi que la puissance que celle-ci fait
     économiser
     """
@@ -185,7 +189,7 @@ def comparaison_techno(vitesse, list_techno, stats_vent, affichage, retour=False
         # On récupère le résultat pour la techno puissance moyenne pondérée et dictionnaire associé pour les différentes
         # incidences
         if affichage:
-            # Si affichage==True on affiche pour chacune des technos une courbe polaire pour la puissance suivant
+            # Si affichage == True on affiche pour chacune des technos une courbe polaire pour la puissance suivant
             # l'incidence
             les_angles = list(dico.keys())
             les_val = []
@@ -211,13 +215,14 @@ def comparaison_techno(vitesse, list_techno, stats_vent, affichage, retour=False
     vals = list(res.keys())
     opti = max(vals)
     techno_opti = res[opti]
-    print(res,stats_vent)
-    return (techno_opti, opti, res)
+    print(res, stats_vent)
+    return techno_opti, opti, res
 
 
 def comparaison_route(vitesse: object, list_techno: object, liste_route: object) -> object:
     """Cette fonction compare les différentes routes pour les différentes technos, et renvoie la techno la plus
-    optimisée pour la route la plus optimisée
+    optimisée pour la route la plus optimisée. Un inconvéient de celle-ci est qu'elle prend en compte le même trajet
+    que ce soit pour l'aller et le retour.
 
     :param vitesse: type(float), vitesse du navire en noeuds, doit être la même que celle du fichier de polaire de
     solution vélique
@@ -227,13 +232,15 @@ def comparaison_route(vitesse: object, list_techno: object, liste_route: object)
 
     :return: route optimisée, techno optimale pour la route, puissance moyenne pour cette route et cette techno
     """
-    res = {} #Stockage des valeurs pour la route clé route et valeur le max pour la route considérée
+    res = {}  # Stockage des valeurs pour la route clé route et valeur le max pour la route considérée
     for route in liste_route:
+        # On parcourt la liste des routes afin de calculer la puissance économisée pour chacune des technos
         dictionnaire = comparaison_techno_aller_retour(vitesse, list_techno, route)
-        les_puissances=list(dictionnaire.keys())
-        max_puissance= max(les_puissances)
-        res[route] = (dictionnaire[max_puissance],max_puissance )
-    #on stocke la meilleure solution pour chacune des routes
+        # retourne un dictionnaire avec la techno et la puissance économisée associée en moyenne
+        les_puissances = list(dictionnaire.keys())
+        max_puissance = max(les_puissances)
+        res[route] = (dictionnaire[max_puissance], max_puissance)
+    # on stocke la meilleure solution pour chacune des routes
     vals = list(res.keys())
     maximum = 0
     for valeur in vals:
@@ -249,38 +256,41 @@ def comparaison_route(vitesse: object, list_techno: object, liste_route: object)
     return route_opti, techno_opti, maximum
 
 
-def affichage_comparaison_route(liste_route,vnavire=0, retour=False):
+def affichage_comparaison_route(liste_route, vnavire=0, retour=False):
     """Cette fonction permet d'afficher les vents de différentes routes.
 
-    :param liste_route: type (list) Liste des chemins des différentes routes
+    :param liste_route: Type (list) Liste des chemins des différentes routes
+    :param vnavire: Type (float) Impose une vitesse de navire pour l'orientation des vents en nœuds.
+    :param retour: Type (bool) Booléen qui vaut True si on est sur un trajet retour
+
     :return: Affiche un graphique avec les stats des vents pour différentes routes en combinant la proba des
     différentes vitesses
     """
     for i in range(len(liste_route)):
         route = liste_route[i]
+        # On parcourt la liste des différents trajets
         if i < len(liste_route) - 1:
             end = False
         else:
             end = True
         if retour:
-            # On affiche un graphique qui compare les différentes routes si on choisit d'afficher ou pour une seule
-            # si telle est son utilisation
             dico = lecture_vent(route, 0)
-            dico_retour=creer_stats_retour(dico)
-            if vnavire!=0:
-                stats_retour = conversion_donnée(dico_retour, vnavire)
+            dico_retour = creer_stats_retour(dico)  # inversion du sens des vents
+            if vnavire != 0:
+                stats_retour = conversion_donnée(dico_retour, vnavire)  # vent apparent
             else:
-                stats_retour=dico_retour
+                stats_retour = dico_retour
         else:
             dico = lecture_vent(route, vnavire)
             stats_retour = dico
-        probas={}
-        les_vitesses=list(stats_retour.keys())
+        probas = {}  # pour stocker les probas
+        les_vitesses = list(stats_retour.keys())
         for angle in stats_retour[les_vitesses[0]]:
-            probas[angle]=0
+            probas[angle] = 0
         for vitesse in stats_retour:
             for angle in stats_retour[vitesse]:
-                probas[angle]+=stats_retour[vitesse][angle]
+                probas[angle] += stats_retour[vitesse][angle]  # On somme toutes les probas de vitesse pour une
+                # incidence donnée
         les_r = list(probas.values())
         les_angles = list(probas.keys())
         les_angles = les_angles[
@@ -294,7 +304,6 @@ def affichage_comparaison_route(liste_route,vnavire=0, retour=False):
         plt.gca().set_xticklabels(etiquettes_angles)
         plt.subplots_adjust(top=0.8)
         plt.title("Probabilité d'occurrence des vents suivant l'orientation")
-
     plt.legend(loc='upper right', bbox_to_anchor=(1.37, 1.0))
     plt.show()
     return
@@ -361,14 +370,13 @@ def lecture_pol(fichier):
     return polaires
 
 
-def lecture_vent(fichier, vnavire=0, affichage=False, end=True):
+def lecture_vent(fichier, vnavire=0):
     """
-    Cette fonction permet de lire un fichier vent réel et renvoie les probabilités d'obtenir un vent apparent. :param
-    fichier: type(str) chemin d'accès au fichier de vent (vitesse en m/s) :param vnavire: type(float) vitesse du
-    navire (en noeuds), par défaut nulle :param affichage: type(bool) permet d'afficher ou non un graphique comparant
-    les différentes vitesses de navire :param end: type(bool) Permet lorsque utilisé dans la fonction
-    affichage_comparaison_route pour le dernier, on affiche la figure avec toutes les courbes :return: Type(dic) {
-    vitesse1:{angle1:proba1, angle2:proba2,...}, vitesse2:{...},...} Et affiche un graphique si affichage==True
+    Cette fonction permet de lire un fichier vent réel et renvoie les probabilités d'obtenir un vent apparent.
+    :param fichier: type(str) chemin d'accès au fichier de vent (vitesse en m/s)
+    :param vnavire: type(float) vitesse du navire (en noeuds), par défaut nulle
+
+    :return: Type(dic) { vitesse1:{angle1:proba1, angle2:proba2,...}, vitesse2:{...},...}
     """
     stats = open(fichier, "r", encoding="utf-8")  # ouverture du fichier des stats vent
     stats_lines = csv.reader(stats)
@@ -401,98 +409,32 @@ def lecture_vent(fichier, vnavire=0, affichage=False, end=True):
                     les_vitesses_stats.append(line_formatted1[i])
         indentation += 1  # incrémentation d'indentation pour dire que l'on passe à la ligne suivante
     for angle in les_angles_stats:
-        probas[angle]=0
+        probas[angle] = 0
     if vnavire != 0:
         dic_vnavire = conversion_donnée(stats_dict, vnavire)
         for vitesse in dic_vnavire:
             for angle in dic_vnavire[vitesse]:
                 probas[angle] += dic_vnavire[vitesse][angle]
                 # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
-    elif vnavire==0:
+    elif vnavire == 0:
         for vitesse in stats_dict:
             for angle in stats_dict[vitesse]:
                 probas[angle] += stats_dict[vitesse][angle]
                 # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
-        #Permet d'avoir le vent apparent
+        # Permet d'avoir le vent apparent
     for angle in les_angles_stats:
         probas[angle] = 0
-    if vnavire!=0:
+    if vnavire != 0:
         return dic_vnavire
-    elif vnavire==0:
+    elif vnavire == 0:
         return stats_dict
-
-
-def économie_puissance(puissance_sans_voile, puissance_avec_voile, stats_vent, vnavire, vvent, affichage=False):
-    pol_voil = lecture_pol(puissance_avec_voile)
-    vvent = vvent * noeud_en_ms
-    vnavire = vnavire * noeud_en_ms
-    pol_sans_voil = lecture_pol(puissance_sans_voile)
-    stats_vent = lecture_vent(stats_vent, vnavire)
-    puissance_totale = 0
-    for vitesse in pol_sans_voil.keys():
-        if vitesse == vnavire:
-            val_without_s = {}
-            val_s = {}
-            angle_without_s = list(pol_sans_voil[vitesse].keys())
-            angle_s = list(pol_voil[vitesse].keys())
-            windspeed_calc = 0
-            for windspeed_stat in stats_vent:
-                if windspeed_stat >= windspeed_calc and windspeed_stat < vvent:
-                    windspeed_calc = windspeed_stat
-            stats = stats_vent[windspeed_calc]
-            les_angles = list(stats.keys())
-            res = {}
-            for angle in angle_without_s:
-                if angle == 0 or angle == 180:
-                    val_without_s[angle] = pol_sans_voil[vitesse][angle]
-                else:
-                    val_without_s[360 - angle] = pol_sans_voil[vitesse][angle]
-                    val_without_s[angle] = pol_sans_voil[vitesse][angle]
-            for angle in angle_s:
-                if angle == 180:
-                    val_s[angle] = pol_voil[vitesse][angle]
-                else:
-                    val_s[360 - angle] = pol_voil[vitesse][angle]
-                    val_s[angle] = pol_voil[vitesse][angle]
-            sort_angle_without_s = np.array(list(val_without_s.keys()))
-            sort_angle_without_s = np.sort(sort_angle_without_s)
-            sort_angle_s = np.array(list(val_s.keys()))
-            sort_angle_s = np.sort(sort_angle_s)
-            sort_val_without_s = [val_without_s[angle] for angle in sort_angle_without_s]
-            sort_val_s = [val_s[angle] for angle in sort_angle_s]
-            interp_without_s = np.interp(les_angles, sort_angle_without_s, sort_val_without_s)
-            interp_s = np.interp(les_angles, sort_angle_s, sort_val_s)
-            les_probas = list(stats.values())
-            somme = 0
-            test = []
-            for proba in les_probas:
-                somme += proba
-            for i in range(len(les_angles)):
-                angle = les_angles[i]
-                res[angle] = (interp_without_s[i] - interp_s[i]) * stats[angle] / somme
-                test.append((interp_without_s[i] - interp_s[i]) * stats[angle] / somme)
-                puissance_totale += (interp_without_s[i] - interp_s[i]) * stats[angle] / somme
-            if affichage:
-                les_angles = les_angles[::-1]  # inversion de la liste pour passer en sens horaire
-                plt.polar(np.radians(les_angles), test, label=str(vvent))
-                plt.gca().set_theta_offset(np.pi / 2)
-                etiquettes_angles = np.linspace(45, 315, 7)
-                etiquettes_angles = np.append(etiquettes_angles, 0)
-                etiquettes_angles = etiquettes_angles[::-1]
-                plt.gca().set_xticklabels(etiquettes_angles)
-                plt.subplots_adjust(top=0.8)
-                plt.legend(loc='upper right', bbox_to_anchor=(1.37, 1.0))
-                plt.title("Puissance (en kW) pondérée par la probabilité du vent suivant\n l'orientation du vent pour "
-                          "différentes vitesses du vent (en m/s)")
-                plt.show()
-    print(puissance_totale)
-    return res
 
 
 def arrondir_a_5(val):
     """
     Cette fonction permet d'arrondir à une valeur à 5 près
     :param val: type(float)
+
     :return: type(int)
     """
     quotient = val / 5
@@ -508,41 +450,42 @@ def conversion_donnée(dico, vnavire):
     :param dico: type(dictionnaire) Dictionnaire de statistique des vents {vitesse1:{angle1:proba1, angle2:proba2,...},
     vitesse2:{...},...} vitesses en m/s
     :param vnavire: type(float) vitesse en noeuds
+
     :return: type dictionnaire
     """
-    dico_act = {}   # Dictionnaire actualisé pour un vent apparent, organisé de la même manière que pour les
+    dico_act = {}  # Dictionnaire actualisé pour un vent apparent, organisé de la même manière que pour les
     # statistiques vent du lecture vent, {vitesse1:{angle1:proba1,angle2:proba2,...},vitesse2{...},...}
     vnavire_ms = vnavire * noeud_en_ms
     les_vitesses = list(dico.keys())
     les_angles = list(dico[0].keys())
     for vitesse in les_vitesses:
         dico_act[vitesse] = {}
-    somme_rest = 0
     for vitesse_vent in dico:
         for angle_vent in dico[vitesse_vent]:
+            # Parcourt des vitesses et des angles pour réaffecter chacune des probas
             angle_réel_vent = angle_vent
             x, y = vitesse_vent * np.cos(angle_réel_vent * np.pi / 180), vitesse_vent * np.sin(
                 angle_réel_vent * np.pi / 180)
-            vect_v_vent = np.array([x, y])
-            vect_v_navire = np.array([vnavire_ms, 0])
+            vect_v_vent = np.array([x, y])  # vecteur de vent réel
+            vect_v_navire = np.array([vnavire_ms, 0])  # Vecteur de vent du navire
             vect_v_réel = vect_v_vent + vect_v_navire
-            angle_réel = np.arctan2(vect_v_réel[1], vect_v_réel[0])
-            angle_calc=angle_réel
+            angle_réel = np.arctan2(vect_v_réel[1], vect_v_réel[0])  # Calcul du nouvel angle
+            angle_calc = angle_réel
             if angle_réel < 0 and -np.pi <= angle_réel:
-                angle_calc =angle_réel + 2 * np.pi
+                angle_calc = angle_réel + 2 * np.pi
+            #On ramène tous les angles entre 0 et 360° à cause de la fonction arctan2
             angle_calc *= 180 / np.pi
             # angle_réel=conversion_angle_repère_bat(angle_réel)
-            v_réelle = np.linalg.norm(vect_v_réel)
+            v_réelle = np.linalg.norm(vect_v_réel)  # nouvelle vitesse qui est la norme du nouveau vecteur
             v_réelle_ar = round(v_réelle)
             if v_réelle_ar in les_vitesses:
+                # Pour tous les vents apparents on calcule les nouvelles probas
                 if angle_calc in dico_act[v_réelle_ar]:
                     dico_act[v_réelle_ar][angle_calc] += dico[vitesse_vent][angle_vent]
                 else:
                     dico_act[v_réelle_ar][angle_calc] = dico[vitesse_vent][angle_vent]
-            if v_réelle_ar not in les_vitesses:
-                somme_rest += dico[vitesse_vent][angle_vent]
     dico_fin = {}
-    les_angles=np.arange(0,356,5)
+    les_angles = np.arange(0, 356, 5)
     for vitesse in les_vitesses:
         dico_fin[vitesse] = {}
         for angle in les_angles:
@@ -551,14 +494,25 @@ def conversion_donnée(dico, vnavire):
     for vitesse in dico_act:
         for angle in dico_act[vitesse]:
             angle_ar = arrondir_a_5(angle)
+            # On arrondit à 5 degrés près l'angle
             if angle_ar == 360:
                 angle_ar = 0
             dico_fin[vitesse][angle_ar] += dico_act[vitesse][angle]
+            # On ajoute la valeur de la simple proba
             somme_proba += dico_act[vitesse][angle]
     return dico_fin
 
 
 def affichage_des_polaires(dico):
+    """
+    Cette fonction a pour but d'afficher les polaires d'une solution vélique. (en kN)
+
+    :param dico: Type(dic) Correspond au dictionnaire {vitesse1 : {angle1: valeur1, angle2: valeur2,...}, {vitesse2:{...}, ...}
+
+    :return: Affiche un diagramme avec les polaires de la solution vélique
+    """
+
+
     for vitesse in dico:
         les_angles = list(dico[vitesse].keys())
         les_angles = np.array(les_angles)
@@ -578,39 +532,57 @@ def affichage_des_polaires(dico):
 
 
 def creer_stats_retour(dico):
-    dico_act={}
+    """
+    :param dico Type(dic) Dictionnaire {vitesse1:{angle1:proba1,angle2:proba2,...},vitesse2{...},...}
+
+    :return: renvoie un dictionnaire similaire en passant les angles de tribord à bâbord et vice versa.
+    """
+
+    dico_act = {}
     for vitesse in dico:
-        dico_act[vitesse]={}
+        dico_act[vitesse] = {}
         for angle in dico[vitesse]:
-            if angle<180:
-                angle_act=180+angle
-            elif angle>=180:
-                angle_act=angle-180
-            dico_act[vitesse][angle]=dico[vitesse][angle_act]
+            if angle < 180:
+                angle_act = 180 + angle
+            elif angle >= 180:
+                angle_act = angle - 180
+            dico_act[vitesse][angle] = dico[vitesse][angle_act]
     return dico_act
 
 
 def comparaison_techno_aller_retour(vitesse: object, list_techno: object, route):
-    technos_aller=comparaison_techno(vitesse,list_techno,route,True,False)
-    technos_retour=comparaison_techno(vitesse,list_techno,route,True,True)
-    dico_aller=technos_aller[2]
-    dico_retour=technos_retour[2]
-    moy={}
+    """
+    Cette fonction permet de comparer les solutions véliques non seulement pour le trajet aller, mais aussi retour.
+    :param vitesse: Type(float) Vitesse du navire en nœuds
+    :param list_techno: Type(list) Liste des technologies envisagées
+    :param route: Type(str) Chemin d'accès aux statistiques de vents pour la route donnée
+
+    :return: Retourne un dictionnaire avec les moyennes des puissances éconnomisés sur une route pour différentes technos
+    """
+    technos_aller = comparaison_techno(vitesse, list_techno, route, True, False)
+    technos_retour = comparaison_techno(vitesse, list_techno, route, True, True)
+    dico_aller = technos_aller[2]
+    dico_retour = technos_retour[2]
+    moy = {} # Dictionnaire afin de stocker la moyenne des résultats aller et retour
     for val_aller in dico_aller:
         for val_retour in dico_retour:
-            if dico_aller[val_aller]==dico_retour[val_retour]:
-                val=(val_retour+val_aller)/2
-                moy[val]=dico_retour[val_retour]
+            if dico_aller[val_aller] == dico_retour[val_retour]:
+                val = (val_retour + val_aller) / 2  # Moyenne des résultats pour la techno
+                moy[val] = dico_retour[val_retour]
     return moy
 
-def lecture_vent_bis(fichier, v_vent_max, v_vent_min, vnavire=0, affichage=False, end=True):
+
+def lecture_vent_bis(fichier, v_vent_max, v_vent_min, vnavire=0):
     """
-    Cette fonction permet de lire un fichier vent réel et renvoie les probabilités d'obtenir un vent apparent. :param
-    fichier: type(str) chemin d'accès au fichier de vent (vitesse en m/s) :param vnavire: type(float) vitesse du
-    navire (en noeuds), par défaut nulle :param affichage: type(bool) permet d'afficher ou non un graphique comparant
-    les différentes vitesses de navire :param end: type(bool) Permet lorsque utilisé dans la fonction
-    affichage_comparaison_route pour le dernier, on affiche la figure avec toutes les courbes :return: Type(dic) {
-    vitesse1:{angle1:proba1, angle2:proba2,...}, vitesse2:{...},...} Et affiche un graphique si affichage==True
+    Cette fonction permet de lire un fichier de vent en sélectionnant les vitesses minimales et maximales qui nous
+    intéressent. On pourra également prendre en compte une vitesse de navire si nécessaire.
+
+    :param fichier: Type(str) fichier de statistiques de vent
+    :param v_vent_max: Type(float) valeur maximale des vitesses de vent pris en compte (en noeuds)
+    :param v_vent_min: Type(float) valeur minimale des vitesses de vent pris en compte (en noeuds)
+    :param vnavire: Type(float) Vitesse du navire en nœuds.
+
+    :return: Dictionnaire {vitesse1:{angle1:proba1,angle2:proba2,...},vitesse2:{...},...}
     """
     stats = open(fichier, "r", encoding="utf-8")  # ouverture du fichier des stats vent
     stats_lines = csv.reader(stats)
@@ -619,9 +591,8 @@ def lecture_vent_bis(fichier, v_vent_max, v_vent_min, vnavire=0, affichage=False
     indentation = 0  # utile pour savoir dans quelle ligne on est
     les_angles_stats = []  # liste des angles
     les_vitesses_stats = []  # liste des vitesses
-    v_max_ms=v_vent_max*noeud_en_ms
-    v_min_ms=v_vent_min*noeud_en_ms
-    probas = {}
+    v_max_ms = v_vent_max * noeud_en_ms
+    v_min_ms = v_vent_min * noeud_en_ms
     #######################################Lecture du fichier de stats#################################################
     for line in stats_lines:
         line_formatted = line[0].strip().split(";")  # mise en forme
@@ -638,71 +609,76 @@ def lecture_vent_bis(fichier, v_vent_max, v_vent_min, vnavire=0, affichage=False
             stats_dict[line_formatted1[0]] = {}  # On prend un dictionnaire pour cette vitesse car la vitesse est
             # stockée dans la première colonne
             for i in range(len(line_formatted1)):
-                if i != 0 and line_formatted1[0]>v_min_ms and line_formatted1[0]<v_max_ms:
+                if i != 0 and line_formatted1[0] > v_min_ms and line_formatted1[0] < v_max_ms:
                     stats_dict[line_formatted1[0]][les_angles_stats[i - 1]] = line_formatted1[i]  # On ajoute les
                     # valeurs pour chacun des angles associés
-                elif line_formatted1[0]>v_min_ms and line_formatted1[0]<v_max_ms:
+                elif line_formatted1[0] > v_min_ms and line_formatted1[0] < v_max_ms:
                     les_vitesses_stats.append(line_formatted1[i])
         indentation += 1  # incrémentation d'indentation pour dire que l'on passe à la ligne suivante
-    for angle in les_angles_stats:
-        probas[angle]=0
     if vnavire != 0:
         dic_vnavire = conversion_donnée(stats_dict, vnavire)
-        for vitesse in dic_vnavire:
-            for angle in dic_vnavire[vitesse]:
-                probas[angle] += dic_vnavire[vitesse][angle]
-                # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
-    elif vnavire==0:
-        for vitesse in stats_dict:
-            for angle in stats_dict[vitesse]:
-                probas[angle] += stats_dict[vitesse][angle]
-                # Stocke la somme des probas pour les différentes vitesses pour l'orientation d'un vent
-        #Permet d'avoir le vent apparent
-    for angle in les_angles_stats:
-        probas[angle] = 0
-    if vnavire!=0:
+    if vnavire != 0:
         return dic_vnavire
-    elif vnavire==0:
+    elif vnavire == 0:
         return stats_dict
 
 
-def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vitesse_vent_min,v_navire,retour):
+def calc_puissance_pour_vitesse(fichier_stat, fichier_polaire, vitesse_vent_max, vitesse_vent_min, v_navire, retour):
+    """
+    Cette fonction est similaire à la fonction calcule_puissance et utilise la fonction lecture_vent_bis pour prendre
+    seulement une plage de vitesse de vent en compte.
+
+    :param fichier_stat: Type(str) correspond au chemin du fichier de statistiques de vent.
+
+    :param fichier_polaire: Type(str) correspond au chemin du fichier de polaire de la solution vélique.
+
+    :param vitesse_vent_max: Type(float) correspond à la vitesse de vent maximal pris en compte, en nœuds
+
+    :param vitesse_vent_min: Type(float) correspond à la vitesse de vent maximal pris en compte, en nœuds
+
+    :param v_navire: Type(float) vitesse du navire en noeuds
+
+    :param retour: Type(bool) si True alors on change les stats en ajoutant 180°
+
+    :return: Valeur de la puissance effective économisée
+    """
     if retour:
         v_lecture = 0
     else:
         v_lecture = v_navire
-    dic_vent = lecture_vent_bis(fichier_stat,vitesse_vent_max,vitesse_vent_min, v_lecture)  # On stocke les valeurs des statistiques dans un dictionnaire
+    dic_vent = lecture_vent_bis(fichier_stat, vitesse_vent_max, vitesse_vent_min,
+                                v_lecture)  # On stocke les valeurs des statistiques dans un dictionnaire
     if retour:
         stats_retour = creer_stats_retour(dic_vent)
         stats_retour_apparent = conversion_donnée(stats_retour, v_navire)
         dic_vent = stats_retour_apparent
-    dic_polaire=lecture_pol(fichier_polaire)
-    v_vent_max_ms=vitesse_vent_max*noeud_en_ms
-    v_vent_min_ms=vitesse_vent_min*noeud_en_ms
-    v_stats=list(dic_vent.keys())
-    v_polaire=list(dic_polaire.keys())
-    v_polaire=v_polaire[::-1]
-    v_vent=list(dic_vent.keys())
-    v_vent_calc=[]
+    dic_polaire = lecture_pol(fichier_polaire)
+    v_vent_max_ms = vitesse_vent_max * noeud_en_ms
+    v_vent_min_ms = vitesse_vent_min * noeud_en_ms
+    v_stats = list(dic_vent.keys())
+    v_polaire = list(dic_polaire.keys())
+    v_polaire = v_polaire[::-1]
+    v_vent = list(dic_vent.keys())
+    v_vent_calc = []
     for vitesse in dic_vent:
-        if vitesse>v_polaire[0]:
+        if vitesse > v_polaire[0]:
             v_vent_calc.append(vitesse)
-    dic_res={}
+    dic_res = {}
     for v in v_vent_calc:
-        les_angles_stats=list(dic_vent[v].keys())
-        i=0
-        dic_res[v]={}
-        while  i<len(v_polaire) and v >=v_polaire[i]:
-            i+=1
-        v_pol_calc=v_polaire[i-1]
+        les_angles_stats = list(dic_vent[v].keys())
+        i = 0
+        dic_res[v] = {}
+        while i < len(v_polaire) and v >= v_polaire[i]:
+            i += 1
+        v_pol_calc = v_polaire[i - 1]
         print(v_polaire)
-        print(v,v_pol_calc)
-        effort_act_pol=dic_polaire[v_pol_calc]
+        print(v, v_pol_calc)
+        effort_act_pol = dic_polaire[v_pol_calc]
         proba_act = dic_vent[v]
         for angle in list(dic_vent[v].keys()):
-            dic_res[v][angle]=0
-        les_angles_pol=list(dic_polaire[v_pol_calc].keys())
-        if les_angles_pol[-1]<=180:
+            dic_res[v][angle] = 0
+        les_angles_pol = list(dic_polaire[v_pol_calc].keys())
+        if les_angles_pol[-1] <= 180:
             for i in range(-1, -(len(les_angles_pol) - 1), -1):
                 angle = les_angles_pol[i]
                 if angle != 180 and angle != 0:
@@ -712,24 +688,25 @@ def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vi
         interp_efforts = np.interp(les_angles_stats, np.array(les_angles_pol), les_efforts)  # On veut connaitre la
         for i in range(len(les_angles_stats)):
             dic_res[v][les_angles_stats[i]] += interp_efforts[i]
-    puiss_suivant_inc={}
+    puiss_suivant_inc = {}
     for angle in les_angles_stats:
-        puiss_suivant_inc[angle]=0
+        puiss_suivant_inc[angle] = 0
     s_proba = 0
     for v in v_vent_calc:
         for angle in les_angles_stats:
-            puiss_suivant_inc[angle]+=dic_res[v][angle]*dic_vent[v][angle]*v_navire*noeud_en_ms
-            s_proba+=dic_vent[v][angle]
+            puiss_suivant_inc[angle] += dic_res[v][angle] * dic_vent[v][angle] * v_navire * noeud_en_ms
+            s_proba += dic_vent[v][angle]
     proba_effort = 0
     for angle in les_angles_stats:
-        proba_effort+=puiss_suivant_inc[angle]
+        proba_effort += puiss_suivant_inc[angle]
     etiquettes_angles = np.linspace(45, 315, 7)
     etiquettes_angles = np.append(etiquettes_angles, 0)
     etiquettes_angles = etiquettes_angles[::-1]
-    list_r=[]
+    list_r = []
     for angle in puiss_suivant_inc:
-        list_r.append(puiss_suivant_inc[angle]/s_proba)
-    plt.polar(np.radians(les_angles_stats), list_r, label=str(round(v_vent_min_ms, 2))+" à "+str(round(v_vent_max_ms, 2)))
+        list_r.append(puiss_suivant_inc[angle] / s_proba)
+    plt.polar(np.radians(les_angles_stats), list_r,
+              label=str(round(v_vent_min_ms, 2)) + " à " + str(round(v_vent_max_ms, 2)))
     plt.gca().set_theta_offset(np.pi / 2)
     plt.gca().set_xticklabels(etiquettes_angles)
     plt.subplots_adjust(top=0.8)
@@ -737,36 +714,38 @@ def calc_puissance_pour_vitesse(fichier_stat,fichier_polaire,vitesse_vent_max,vi
     plt.legend(loc='upper right', bbox_to_anchor=(1.37, 1.0))
     plt.show()
     print("proba vent", s_proba)
-    return proba_effort/s_proba
+    return proba_effort / s_proba
 
 
-#val = calcul_puissance("stats_vent/stats_10kt_ter.csv", "polaires/BTS_11.csv", 11, True, "BTS", False)
+# val = calcul_puissance("stats_vent/stats_10kt_ter.csv", "polaires/BTS_11.csv", 11, True, "BTS", False)
 technos = ["ADD", "BTS", "SS", "WISAMO", "ZEPHIRE"]
-stats_transit = ["stats_vent/stats_10kt_transit_direct.csv","stats_vent/stats_transit_1WP.csv","stats_vent/stats_transit_2WP.csv"]
-stats_fishing = ["stats_vent/stats_route_fishing_direct.csv","stats_vent/stats_route_fishing_1WP.csv","stats_vent/stats_route_fishing_2WP.csv"]
-#stats_fishing = ["stats_vent/stats_route_fishing1.csv", "stats_vent/stats_route_fishing2.csv"]
-#affichage_comparaison_route(stats)
-#test = comparaison_route(11, technos, stats_fishing)
-#comparaison_techno(11, technos, "stats_vent/stats_10kt_ter.csv", True)
-#lecture_vent("stats_vent/stats_10kt_ter.csv",11,True,True)
-#test = économie_puissance("puissances/sans_voile.csv", "puissances/avec_ADD.csv", "stats_vent/stats_10kt_bis.csv", 11,
- #                        20, True)
-#test = lecture_vent("stats_vent/stats_10kt_ter.csv", 11)
+stats_transit = ["stats_vent/stats_10kt_transit_direct.csv", "stats_vent/stats_transit_1WP.csv",
+                 "stats_vent/stats_transit_2WP.csv"]
+stats_fishing = ["stats_vent/stats_route_fishing_direct.csv", "stats_vent/stats_route_fishing_1WP.csv",
+                 "stats_vent/stats_route_fishing_2WP.csv"]
+# stats_fishing = ["stats_vent/stats_route_fishing1.csv", "stats_vent/stats_route_fishing2.csv"]
+# affichage_comparaison_route(stats)
+# test = comparaison_route(11, technos, stats_fishing)
+# comparaison_techno(11, technos, "stats_vent/stats_10kt_ter.csv", True)
+# lecture_vent("stats_vent/stats_10kt_ter.csv",11,True,True)
+# test = économie_puissance("puissances/sans_voile.csv", "puissances/avec_ADD.csv", "stats_vent/stats_10kt_bis.csv", 11,
+#                        20, True)
+# test = lecture_vent("stats_vent/stats_10kt_ter.csv", 11)
 # conversion_donnée(test, 11)
 # print(test)
 # lecture_vent("stats_vent/stats_10kt_bis.csv",True)
-#test_bis = lecture_pol("polaires/ADD_11.csv")
-#affichage_des_polaires(test_bis)
-#comparaison_route(9.5, technos, stats_transit)
+# test_bis = lecture_pol("polaires/ADD_11.csv")
+# affichage_des_polaires(test_bis)
+# comparaison_route(9.5, technos, stats_transit)
 # comparaison_route(11, technos, stats_fishing)
-#affichage_comparaison_route(stats,11,False)
-#affichage_comparaison_route(stats,11,True)
-#test=comparaison_techno_aller_retour(11,technos,"stats_vent/stats_10kt.csv")
-#print(test,"test")
+# affichage_comparaison_route(stats,11,False)
+# affichage_comparaison_route(stats,11,True)
+# test=comparaison_techno_aller_retour(11,technos,"stats_vent/stats_10kt.csv")
+# print(test,"test")
 
-#test=calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",10,11)
+# test=calc_puissance_pour_vitesse("stats_vent/stats_10kt_transit_direct.csv","polaires/ADD_11.csv",10,11)
 # print(test)
-print(calc_puissance_pour_vitesse("stats_vent/stats_route_fishing_1WP.csv","polaires/ADD_11.csv",50,30,11,False))
-lecture_vent("stats_vent/stats_10kt_transit_direct.csv",11,True,True)
+print(calc_puissance_pour_vitesse("stats_vent/stats_route_fishing_1WP.csv", "polaires/ADD_11.csv", 50, 30, 11, False))
+lecture_vent("stats_vent/stats_10kt_transit_direct.csv", 11, True, True)
 # affichage_comparaison_route(stats_fishing,11,False)
 # affichage_comparaison_route(stats_fishing,11,True)
